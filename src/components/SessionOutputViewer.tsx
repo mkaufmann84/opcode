@@ -459,8 +459,8 @@ export function SessionOutputViewer({ session, onClose, className }: SessionOutp
                 </div>
               </div>
             ) : (
-              <div 
-                className="h-full overflow-y-auto p-6 space-y-3" 
+              <div
+                className="h-full overflow-y-auto p-6 space-y-3 conversation-zoom"
                 ref={scrollAreaRef}
                 onScroll={() => {
                   // Mark that user has scrolled manually
@@ -593,9 +593,9 @@ export function SessionOutputViewer({ session, onClose, className }: SessionOutp
 
           {/* Modal Content */}
           <div className="flex-1 overflow-hidden p-6">
-            <div 
+            <div
               ref={fullscreenScrollRef}
-              className="h-full overflow-y-auto space-y-3"
+              className="h-full overflow-y-auto space-y-3 conversation-zoom"
               onScroll={() => {
                 // Mark that user has scrolled manually
                 if (!hasUserScrolled) {

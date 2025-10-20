@@ -6,6 +6,7 @@ import { initializeWebMode } from "@/lib/apiAdapter";
 import { OutputCacheProvider } from "@/lib/outputCache";
 import { TabProvider } from "@/contexts/TabContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ZoomProvider, useZoom } from "@/contexts/ZoomContext";
 import { Card } from "@/components/ui/card";
 import { ProjectList } from "@/components/ProjectList";
 import { FilePicker } from "@/components/FilePicker";
@@ -49,6 +50,7 @@ type View =
 function AppContent() {
   const [view, setView] = useState<View>("tabs");
   const { createClaudeMdTab, createSettingsTab, createUsageTab, createMCPTab, createAgentsTab } = useTabState();
+  const { zoomIn, zoomOut, resetZoom } = useZoom();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -98,14 +100,14 @@ function AppContent() {
     }
   }, [view]);
 
-  // Keyboard shortcuts for tab navigation
+  // Keyboard shortcuts for tab navigation and zoom
   useEffect(() => {
     if (view !== "tabs") return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
-      
+
       if (modKey) {
         switch (e.key) {
           case 't':
@@ -124,6 +126,23 @@ function AppContent() {
               window.dispatchEvent(new CustomEvent('switch-to-next-tab'));
             }
             break;
+          case '=':
+          case '+':
+            // Zoom in (Cmd/Ctrl + Plus)
+            e.preventDefault();
+            zoomIn();
+            break;
+          case '-':
+          case '_':
+            // Zoom out (Cmd/Ctrl + Minus)
+            e.preventDefault();
+            zoomOut();
+            break;
+          case '0':
+            // Reset zoom (Cmd/Ctrl + 0)
+            e.preventDefault();
+            resetZoom();
+            break;
           default:
             // Handle number keys 1-9
             if (e.key >= '1' && e.key <= '9') {
@@ -138,7 +157,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [view]);
+  }, [view, zoomIn, zoomOut, resetZoom]);
 
   // Listen for Claude not found events
   useEffect(() => {
@@ -528,12 +547,14 @@ function App() {
 
   return (
     <ThemeProvider>
-      <OutputCacheProvider>
-        <TabProvider>
-          <AppContent />
-          <StartupIntro visible={showIntro} />
-        </TabProvider>
-      </OutputCacheProvider>
+      <ZoomProvider>
+        <OutputCacheProvider>
+          <TabProvider>
+            <AppContent />
+            <StartupIntro visible={showIntro} />
+          </TabProvider>
+        </OutputCacheProvider>
+      </ZoomProvider>
     </ThemeProvider>
   );
 }

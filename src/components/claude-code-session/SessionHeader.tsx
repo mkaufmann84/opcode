@@ -1,20 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  Terminal, 
-  FolderOpen, 
-  Copy, 
+import {
+  ArrowLeft,
+  Terminal,
+  FolderOpen,
+  Copy,
   GitBranch,
   Settings,
   Hash,
-  Command
+  Command,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useZoom } from '@/contexts/ZoomContext';
 
 interface SessionHeaderProps {
   projectPath: string;
@@ -51,6 +54,8 @@ export const SessionHeader: React.FC<SessionHeaderProps> = React.memo(({
   onSlashCommandsSettings,
   setCopyPopoverOpen
 }) => {
+  const { zoomLevel, zoomIn, zoomOut } = useZoom();
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
@@ -146,6 +151,31 @@ export const SessionHeader: React.FC<SessionHeaderProps> = React.memo(({
           >
             <GitBranch className="h-4 w-4" />
           </Button>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 border-l pl-2 ml-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={zoomOut}
+              className="h-8 w-8"
+              title="Zoom out (Cmd/Ctrl + -)"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground font-mono min-w-[3rem] text-center">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={zoomIn}
+              className="h-8 w-8"
+              title="Zoom in (Cmd/Ctrl + +)"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

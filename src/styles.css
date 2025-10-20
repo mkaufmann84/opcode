@@ -85,6 +85,11 @@ html {
   background-color: var(--color-muted-foreground);
 }
 
+/* Conversation zoom - applies zoom to conversation content */
+.conversation-zoom {
+  zoom: var(--conversation-zoom, 1);
+}
+
 /* Dark theme configuration */
 @theme {
   /* Colors */

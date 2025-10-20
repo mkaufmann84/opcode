@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   Copy,
   ChevronDown,
   GitBranch,
   ChevronUp,
   X,
   Hash,
-  Wrench
+  Wrench,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,7 @@ import type { ClaudeStreamMessage } from "@/types/claude-messages";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTrackEvent, useComponentMetrics, useWorkflowTracking } from "@/hooks";
 import { SessionPersistenceService } from "@/services/sessionPersistence";
+import { useZoom } from "@/contexts/ZoomContext";
 
 interface ClaudeCodeSessionProps {
   /**
@@ -119,6 +122,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   const [showTimeline, setShowTimeline] = useState(false);
   const [timelineVersion, setTimelineVersion] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const { zoomLevel, zoomIn, zoomOut } = useZoom();
   const [showForkDialog, setShowForkDialog] = useState(false);
   const [showSlashCommandsSettings, setShowSlashCommandsSettings] = useState(false);
   const [forkCheckpointId, setForkCheckpointId] = useState<string | null>(null);
@@ -266,6 +270,12 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     estimateSize: () => 150, // Estimate, will be dynamically measured
     overscan: 5,
   });
+
+  // Remeasure virtualizer when zoom changes
+  useEffect(() => {
+    console.log('[ClaudeCodeSession] Zoom changed, remeasuring virtualizer');
+    rowVirtualizer.measure();
+  }, [zoomLevel, rowVirtualizer]);
 
   // Debug logging
   useEffect(() => {
@@ -1221,7 +1231,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   const messagesList = (
     <div
       ref={parentRef}
-      className="flex-1 overflow-y-auto relative pb-20"
+      className="flex-1 overflow-y-auto relative pb-20 conversation-zoom"
       style={{
         contain: 'strict',
       }}
@@ -1590,6 +1600,44 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                       align="end"
                     />
                   )}
+
+                  {/* Zoom Controls */}
+                  <div className="flex items-center gap-0.5 border-l border-border pl-2 ml-2">
+                    <TooltipSimple content="Zoom out (Cmd/Ctrl + -)" side="top">
+                      <motion.div
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={zoomOut}
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                        >
+                          <ZoomOut className="h-3.5 w-3.5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipSimple>
+                    <span className="text-xs text-muted-foreground font-mono min-w-[3rem] text-center">
+                      {Math.round(zoomLevel * 100)}%
+                    </span>
+                    <TooltipSimple content="Zoom in (Cmd/Ctrl + +)" side="top">
+                      <motion.div
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={zoomIn}
+                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                        >
+                          <ZoomIn className="h-3.5 w-3.5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipSimple>
+                  </div>
+
                   <TooltipSimple content="Checkpoint Settings" side="top">
                     <motion.div
                       whileTap={{ scale: 0.97 }}
