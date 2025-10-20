@@ -25,7 +25,7 @@ import { StreamMessage } from './StreamMessage';
 import { ErrorBoundary } from './ErrorBoundary';
 import { formatISOTimestamp } from '@/lib/date-utils';
 import { AGENT_ICONS } from './CCAgents';
-import type { ClaudeStreamMessage } from './AgentExecution';
+import type { ClaudeStreamMessage } from '@/types/claude-messages';
 import { useTabState } from '@/hooks/useTabState';
 
 interface AgentRunOutputViewerProps {

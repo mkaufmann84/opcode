@@ -1,6 +1,6 @@
 import React from "react";
 import { StreamMessage } from "./StreamMessage";
-import type { ClaudeStreamMessage } from "./AgentExecution";
+import type { ClaudeStreamMessage } from "@/types/claude-messages";
 
 /**
  * Demo component showing all the different message types and tools

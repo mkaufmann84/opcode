@@ -2003,23 +2003,43 @@ export const SystemInitializedWidget: React.FC<{
 /**
  * Widget for Task tool - displays sub-agent task information
  */
-export const TaskWidget: React.FC<{ 
-  description?: string; 
+export const TaskWidget: React.FC<{
+  description?: string;
   prompt?: string;
   result?: any;
-}> = ({ description, prompt, result: _result }) => {
+  subagentMessages?: any[];
+  streamMessages?: any[];
+}> = ({ description, prompt, result }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [showSubagent, setShowSubagent] = useState(true);
+
+  const hasSubagentOutput = result && result.content;
+  const isComplete = result && result.status === "completed";
+  const isFailed = result && result.status === "failed";
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="relative">
-          <Bot className="h-4 w-4 text-purple-500" />
-          <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Bot className="h-4 w-4 text-purple-500" />
+            <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
+          </div>
+          <span className="text-sm font-medium">Sub-Agent Task</span>
+          {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+          {isFailed && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
         </div>
-        <span className="text-sm font-medium">Spawning Sub-Agent Task</span>
+        {hasSubagentOutput && (
+          <button
+            onClick={() => setShowSubagent(!showSubagent)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className={cn("h-3 w-3 transition-transform", showSubagent && "rotate-90")} />
+            <span>{showSubagent ? 'Hide' : 'Show'} Output</span>
+          </button>
+        )}
       </div>
-      
+
       <div className="ml-6 space-y-3">
         {description && (
           <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
@@ -2030,7 +2050,7 @@ export const TaskWidget: React.FC<{
             <p className="text-sm text-foreground ml-5">{description}</p>
           </div>
         )}
-        
+
         {prompt && (
           <div className="space-y-2">
             <button
@@ -2040,7 +2060,7 @@ export const TaskWidget: React.FC<{
               <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
               <span>Task Instructions</span>
             </button>
-            
+
             {isExpanded && (
               <div className="rounded-lg border bg-muted/30 p-3">
                 <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
@@ -2048,6 +2068,28 @@ export const TaskWidget: React.FC<{
                 </pre>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Display subagent output */}
+        {hasSubagentOutput && showSubagent && (
+          <div className="rounded-lg border-2 border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Bot className="h-3.5 w-3.5 text-purple-500" />
+              <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">Sub-Agent Response</span>
+              {result.totalDurationMs && (
+                <span className="text-xs text-muted-foreground">
+                  ({(result.totalDurationMs / 1000).toFixed(1)}s)
+                </span>
+              )}
+            </div>
+            <div className="text-sm whitespace-pre-wrap text-foreground/90 ml-5">
+              {typeof result.content === 'string'
+                ? result.content
+                : Array.isArray(result.content)
+                  ? result.content.map((c: any) => typeof c === 'string' ? c : c.text || JSON.stringify(c)).join('\n')
+                  : JSON.stringify(result.content, null, 2)}
+            </div>
           </div>
         )}
       </div>

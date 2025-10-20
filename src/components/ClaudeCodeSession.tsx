@@ -57,7 +57,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { TooltipProvider, TooltipSimple } from "@/components/ui/tooltip-modern";
 import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
-import type { ClaudeStreamMessage } from "./AgentExecution";
+import type { ClaudeStreamMessage } from "@/types/claude-messages";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTrackEvent, useComponentMetrics, useWorkflowTracking } from "@/hooks";
 import { SessionPersistenceService } from "@/services/sessionPersistence";

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { getEnvironmentInfo } from '@/lib/apiAdapter';
-import type { ClaudeStreamMessage } from '../AgentExecution';
+import type { ClaudeStreamMessage } from '@/types/claude-messages';
 
 // Conditional import for Tauri
 let tauriListen: any;

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { formatISOTimestamp } from "@/lib/date-utils";
 import { StreamMessage } from "./StreamMessage";
 import { AGENT_ICONS } from "./CCAgents";
-import type { ClaudeStreamMessage } from "./AgentExecution";
+import type { ClaudeStreamMessage } from "@/types/claude-messages";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 interface AgentRunViewProps {

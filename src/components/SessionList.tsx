@@ -159,7 +159,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                   {/* Metadata footer */}
                   <div className="flex items-center justify-between pt-2 border-t">
                     <p className="text-caption text-muted-foreground font-mono">
-                      {session.id.slice(-8)}
+                      {session.id}
                     </p>
                     {session.todo_data && (
                       <MessageSquare className="h-3 w-3 text-primary" />

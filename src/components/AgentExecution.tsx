@@ -34,6 +34,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { HooksEditor } from "./HooksEditor";
 import { useTrackEvent, useComponentMetrics, useFeatureAdoptionTracking } from "@/hooks";
 import { useTabState } from "@/hooks/useTabState";
+import type { ClaudeStreamMessage } from "@/types/claude-messages";
 
 interface AgentExecutionProps {
   /**
@@ -56,23 +57,6 @@ interface AgentExecutionProps {
    * Optional className for styling
    */
   className?: string;
-}
-
-export interface ClaudeStreamMessage {
-  type: "system" | "assistant" | "user" | "result";
-  subtype?: string;
-  message?: {
-    content?: any[];
-    usage?: {
-      input_tokens: number;
-      output_tokens: number;
-    };
-  };
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-  };
-  [key: string]: any;
 }
 
 /**

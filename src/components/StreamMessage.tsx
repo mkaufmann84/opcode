@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Terminal, 
-  User, 
-  Bot, 
-  AlertCircle, 
+import {
+  Terminal,
+  User,
+  Bot,
+  AlertCircle,
   CheckCircle2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/hooks";
-import type { ClaudeStreamMessage } from "./AgentExecution";
+import type { ClaudeStreamMessage } from "@/types/claude-messages";
 import {
   TodoWidget,
   TodoReadWidget,
