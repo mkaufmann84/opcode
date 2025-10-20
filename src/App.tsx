@@ -7,6 +7,7 @@ import { OutputCacheProvider } from "@/lib/outputCache";
 import { TabProvider } from "@/contexts/TabContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ZoomProvider, useZoom } from "@/contexts/ZoomContext";
+import { FoldProvider } from "@/contexts/FoldContext";
 import { Card } from "@/components/ui/card";
 import { ProjectList } from "@/components/ProjectList";
 import { FilePicker } from "@/components/FilePicker";
@@ -548,12 +549,14 @@ function App() {
   return (
     <ThemeProvider>
       <ZoomProvider>
-        <OutputCacheProvider>
-          <TabProvider>
-            <AppContent />
-            <StartupIntro visible={showIntro} />
-          </TabProvider>
-        </OutputCacheProvider>
+        <FoldProvider>
+          <OutputCacheProvider>
+            <TabProvider>
+              <AppContent />
+              <StartupIntro visible={showIntro} />
+            </TabProvider>
+          </OutputCacheProvider>
+        </FoldProvider>
       </ZoomProvider>
     </ThemeProvider>
   );

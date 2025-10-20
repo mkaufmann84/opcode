@@ -63,6 +63,73 @@ import { open } from "@tauri-apps/plugin-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { useFold } from "@/contexts/FoldContext";
+
+/**
+ * Collapsible wrapper for tool widgets that respects global fold state
+ */
+interface CollapsibleToolWidgetProps {
+  id: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+const CollapsibleToolWidget: React.FC<CollapsibleToolWidgetProps> = ({
+  id,
+  icon,
+  title,
+  subtitle,
+  children,
+  defaultOpen = true
+}) => {
+  const { isFolded, toggleFold } = useFold();
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+
+  // Check if globally folded OR locally collapsed
+  const isCollapsed = isFolded(id) || !localOpen;
+
+  const handleToggle = () => {
+    // If widget is affected by global fold, toggle the fold override
+    if (isFolded('__ALL_FOLDED__')) {
+      toggleFold(id);
+    } else {
+      // Normal local toggle when not in global fold mode
+      setLocalOpen(!localOpen);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+        onClick={handleToggle}
+      >
+        <div className="flex-shrink-0">
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+        {icon}
+        <span className="text-sm font-medium">{title}</span>
+        {subtitle && <span className="text-xs text-muted-foreground">{subtitle}</span>}
+      </div>
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 /**
  * Widget for TodoWrite tool - displays a beautiful TODO list
@@ -81,12 +148,12 @@ export const TodoWidget: React.FC<{ todos: any[]; result?: any }> = ({ todos, re
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-3">
-        <FileEdit className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium">Todo List</span>
-      </div>
-      <div className="space-y-2">
+    <CollapsibleToolWidget
+      id="todo-widget"
+      icon={<FileEdit className="h-4 w-4 text-primary" />}
+      title="Todo List"
+    >
+      <div className="space-y-2 pl-6">
         {todos.map((todo, idx) => (
           <div
             key={todo.id || idx}
@@ -106,8 +173,8 @@ export const TodoWidget: React.FC<{ todos: any[]; result?: any }> = ({ todos, re
                 {todo.content}
               </p>
               {todo.priority && (
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={cn("text-xs", priorityColors[todo.priority as keyof typeof priorityColors])}
                 >
                   {todo.priority}
@@ -117,7 +184,7 @@ export const TodoWidget: React.FC<{ todos: any[]; result?: any }> = ({ todos, re
           </div>
         ))}
       </div>
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -141,35 +208,33 @@ export const LSWidget: React.FC<{ path: string; result?: any }> = ({ path, resul
         resultContent = JSON.stringify(result.content, null, 2);
       }
     }
-    
+
     return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="text-sm">Directory contents for:</span>
-          <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
-            {path}
-          </code>
+      <CollapsibleToolWidget
+        id={`ls-widget-${path}`}
+        icon={<FolderOpen className="h-4 w-4 text-primary" />}
+        title="Directory Listing"
+        subtitle={path}
+      >
+        <div className="ml-6 space-y-2">
+          {resultContent && <LSResultWidget content={resultContent} />}
         </div>
-        {resultContent && <LSResultWidget content={resultContent} />}
-      </div>
+      </CollapsibleToolWidget>
     );
   }
-  
+
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-      <FolderOpen className="h-4 w-4 text-primary" />
-      <span className="text-sm">Listing directory:</span>
-      <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
-        {path}
-      </code>
-      {!result && (
-        <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-          <span>Loading...</span>
-        </div>
-      )}
-    </div>
+    <CollapsibleToolWidget
+      id={`ls-widget-${path}`}
+      icon={<FolderOpen className="h-4 w-4 text-primary" />}
+      title="Listing directory"
+      subtitle={path}
+    >
+      <div className="ml-6 flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
+        <span>Loading...</span>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -348,9 +413,9 @@ export const LSResultWidget: React.FC<{ content: string }> = ({ content }) => {
  * Widget for Read tool
  */
 export const ReadWidget: React.FC<{ filePath: string; result?: any }> = ({ filePath, result }) => {
-  // If we have a result, show it using the ReadResultWidget
+  // Extract result content if available
+  let resultContent = '';
   if (result) {
-    let resultContent = '';
     if (typeof result.content === 'string') {
       resultContent = result.content;
     } else if (result.content && typeof result.content === 'object') {
@@ -364,35 +429,25 @@ export const ReadWidget: React.FC<{ filePath: string; result?: any }> = ({ fileP
         resultContent = JSON.stringify(result.content, null, 2);
       }
     }
-    
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <FileText className="h-4 w-4 text-primary" />
-          <span className="text-sm">File content:</span>
-          <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-            {filePath}
-          </code>
-        </div>
+  }
+
+  return (
+    <CollapsibleToolWidget
+      id={`read-${filePath}`}
+      icon={<FileText className="h-4 w-4 text-primary" />}
+      title="Read"
+      subtitle={filePath}
+    >
+      <div className="ml-6">
+        {!result && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground p-3">
+            <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
+            <span>Loading...</span>
+          </div>
+        )}
         {resultContent && <ReadResultWidget content={resultContent} filePath={filePath} />}
       </div>
-    );
-  }
-  
-  return (
-    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-      <FileText className="h-4 w-4 text-primary" />
-      <span className="text-sm">Reading file:</span>
-      <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-        {filePath}
-      </code>
-      {!result && (
-        <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-          <span>Loading...</span>
-        </div>
-      )}
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -575,7 +630,7 @@ export const GlobWidget: React.FC<{ pattern: string; result?: any }> = ({ patter
   // Extract result content if available
   let resultContent = '';
   let isError = false;
-  
+
   if (result) {
     isError = result.is_error || false;
     if (typeof result.content === 'string') {
@@ -592,50 +647,50 @@ export const GlobWidget: React.FC<{ pattern: string; result?: any }> = ({ patter
       }
     }
   }
-  
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-        <Search className="h-4 w-4 text-primary" />
-        <span className="text-sm">Searching for pattern:</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
-          {pattern}
-        </code>
+    <CollapsibleToolWidget
+      id={`glob-widget-${pattern}`}
+      icon={<Search className="h-4 w-4 text-primary" />}
+      title="File Pattern Search"
+      subtitle={pattern}
+    >
+      <div className="ml-6 space-y-2">
         {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
             <span>Searching...</span>
           </div>
         )}
+
+        {/* Show result if available */}
+        {result && (
+          <div className={cn(
+            "p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
+            isError
+              ? "border-red-500/20 bg-red-500/5 text-red-400"
+              : "border-green-500/20 bg-green-500/5 text-green-300"
+          )}>
+            {resultContent || (isError ? "Search failed" : "No matches found")}
+          </div>
+        )}
       </div>
-      
-      {/* Show result if available */}
-      {result && (
-        <div className={cn(
-          "p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
-          isError 
-            ? "border-red-500/20 bg-red-500/5 text-red-400" 
-            : "border-green-500/20 bg-green-500/5 text-green-300"
-        )}>
-          {resultContent || (isError ? "Search failed" : "No matches found")}
-        </div>
-      )}
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
 /**
  * Widget for Bash tool
  */
-export const BashWidget: React.FC<{ 
-  command: string; 
+export const BashWidget: React.FC<{
+  command: string;
   description?: string;
   result?: any;
 }> = ({ command, description, result }) => {
   // Extract result content if available
   let resultContent = '';
   let isError = false;
-  
+
   if (result) {
     isError = result.is_error || false;
     if (typeof result.content === 'string') {
@@ -652,44 +707,42 @@ export const BashWidget: React.FC<{
       }
     }
   }
-  
+
   return (
-    <div className="rounded-lg border bg-background overflow-hidden">
-      <div className="px-4 py-2 bg-muted/50 flex items-center gap-2 border-b">
-        <Terminal className="h-3.5 w-3.5 text-green-500" />
-        <span className="text-xs font-mono text-muted-foreground">Terminal</span>
-        {description && (
-          <>
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{description}</span>
-          </>
-        )}
-        {/* Show loading indicator when no result yet */}
-        {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-            <span>Running...</span>
-          </div>
-        )}
+    <CollapsibleToolWidget
+      id={`bash-${command.substring(0, 20)}`}
+      icon={<Terminal className="h-4 w-4 text-green-500" />}
+      title="Terminal"
+      subtitle={description}
+    >
+      <div className="rounded-lg border bg-background overflow-hidden ml-6">
+        <div className="p-4 space-y-3">
+          <code className="text-xs font-mono text-green-400 block">
+            $ {command}
+          </code>
+
+          {/* Show loading indicator when no result yet */}
+          {!result && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              <span>Running...</span>
+            </div>
+          )}
+
+          {/* Show result if available */}
+          {result && (
+            <div className={cn(
+              "mt-3 p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
+              isError
+                ? "border-red-500/20 bg-red-500/5 text-red-400"
+                : "border-green-500/20 bg-green-500/5 text-green-300"
+            )}>
+              {resultContent || (isError ? "Command failed" : "Command completed")}
+            </div>
+          )}
+        </div>
       </div>
-      <div className="p-4 space-y-3">
-        <code className="text-xs font-mono text-green-400 block">
-          $ {command}
-        </code>
-        
-        {/* Show result if available */}
-        {result && (
-          <div className={cn(
-            "mt-3 p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
-            isError 
-              ? "border-red-500/20 bg-red-500/5 text-red-400" 
-              : "border-green-500/20 bg-green-500/5 text-green-300"
-          )}>
-            {resultContent || (isError ? "Command failed" : "Command completed")}
-          </div>
-        )}
-      </div>
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -850,17 +903,17 @@ export const WriteWidget: React.FC<{ filePath: string; content: string; result?:
   );
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-        <FileEdit className="h-4 w-4 text-primary" />
-        <span className="text-sm">Writing to file:</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-          {filePath}
-        </code>
+    <CollapsibleToolWidget
+      id={`write-widget-${filePath}`}
+      icon={<FileEdit className="h-4 w-4 text-primary" />}
+      title="Writing to file"
+      subtitle={filePath}
+    >
+      <div className="ml-6 space-y-2">
+        <CodePreview codeContent={displayContent} truncated={true} />
+        <MaximizedView />
       </div>
-      <CodePreview codeContent={displayContent} truncated={true} />
-      <MaximizedView />
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -922,22 +975,27 @@ export const GrepWidget: React.FC<{
   };
   
   const grepResults = result && !isError ? parseGrepResults(resultContent) : [];
-  
+
+  // Build subtitle with pattern and path
+  const subtitle = path ? `${pattern} in ${path}` : pattern;
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20">
-        <Search className="h-4 w-4 text-emerald-500" />
-        <span className="text-sm font-medium">Searching with grep</span>
+    <CollapsibleToolWidget
+      id={`grep-widget-${pattern}-${path || 'all'}`}
+      icon={<Search className="h-4 w-4 text-emerald-500" />}
+      title="Content Search (grep)"
+      subtitle={subtitle}
+    >
+      <div className="ml-6 space-y-2">
         {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
             <span>Searching...</span>
           </div>
         )}
-      </div>
-      
-      {/* Search Parameters */}
-      <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+
+        {/* Search Parameters */}
+        <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
         <div className="grid gap-2">
           {/* Pattern with regex highlighting */}
           <div className="flex items-start gap-3">
@@ -1072,7 +1130,8 @@ export const GrepWidget: React.FC<{
           )}
         </div>
       )}
-    </div>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -1129,23 +1188,21 @@ export const EditWidget: React.FC<{
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
 
-  const diffResult = Diff.diffLines(old_string || '', new_string || '', { 
+  const diffResult = Diff.diffLines(old_string || '', new_string || '', {
     newlineIsToken: true,
-    ignoreWhitespace: false 
+    ignoreWhitespace: false
   });
   const language = getLanguage(file_path);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-2">
-        <FileEdit className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium">Applying Edit to:</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate">
-          {file_path}
-        </code>
-      </div>
-
-      <div className="rounded-lg border bg-background overflow-hidden text-xs font-mono">
+    <CollapsibleToolWidget
+      id={`edit-widget-${file_path}`}
+      icon={<FileEdit className="h-4 w-4 text-primary" />}
+      title="Applying Edit"
+      subtitle={file_path}
+    >
+      <div className="ml-6 space-y-2">
+        <div className="rounded-lg border bg-background overflow-hidden text-xs font-mono">
         <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
           {diffResult.map((part, index) => {
             const partClass = part.added 
@@ -1195,7 +1252,8 @@ export const EditWidget: React.FC<{
           })}
         </div>
       </div>
-    </div>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -1332,18 +1390,26 @@ export const MCPWidget: React.FC<{
   
   const inputTokens = hasInput ? estimateTokens(inputString) : 0;
 
+  // Build subtitle with namespace and method
+  const subtitle = `${formatNamespace(namespace)} > ${formatMethod(method)}()`;
+
   return (
-    <div className="rounded-lg border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-purple-500/5 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-500/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Package2 className="h-4 w-4 text-violet-500" />
-              <Sparkles className="h-2.5 w-2.5 text-violet-400 absolute -top-1 -right-1" />
-            </div>
-            <span className="text-sm font-medium text-violet-600 dark:text-violet-400">MCP Tool</span>
-          </div>
+    <CollapsibleToolWidget
+      id={`mcp-widget-${toolName}`}
+      icon={
+        <div className="relative">
+          <Package2 className="h-4 w-4 text-violet-500" />
+          <Sparkles className="h-2.5 w-2.5 text-violet-400 absolute -top-1 -right-1" />
+        </div>
+      }
+      title="MCP Tool"
+      subtitle={subtitle}
+    >
+      <div className="ml-6 space-y-2">
+        <div className="rounded-lg border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-purple-500/5 overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-500/20">
+            <div className="flex items-center justify-between">
           {hasInput && (
             <div className="flex items-center gap-2">
               <Badge 
@@ -1451,37 +1517,47 @@ export const MCPWidget: React.FC<{
           </div>
         )}
       </div>
-    </div>
+        </div>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
 /**
  * Widget for user commands (e.g., model, clear)
  */
-export const CommandWidget: React.FC<{ 
+export const CommandWidget: React.FC<{
   commandName: string;
   commandMessage: string;
   commandArgs?: string;
 }> = ({ commandName, commandMessage, commandArgs }) => {
+  // Build subtitle with command and args
+  const subtitle = commandArgs ? `${commandName} ${commandArgs}` : commandName;
+
   return (
-    <div className="rounded-lg border bg-background/50 overflow-hidden">
-      <div className="px-4 py-2 border-b bg-muted/50 flex items-center gap-2">
-        <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-blue-400">Command</span>
-      </div>
-      <div className="p-3 space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">$</span>
-          <code className="text-sm font-mono text-foreground">{commandName}</code>
-          {commandArgs && (
-            <code className="text-sm font-mono text-muted-foreground">{commandArgs}</code>
-          )}
+    <CollapsibleToolWidget
+      id={`command-widget-${commandName}`}
+      icon={<Terminal className="h-4 w-4 text-blue-500" />}
+      title="Command"
+      subtitle={subtitle}
+    >
+      <div className="ml-6 space-y-2">
+        <div className="rounded-lg border bg-background/50 overflow-hidden">
+          <div className="p-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">$</span>
+              <code className="text-sm font-mono text-foreground">{commandName}</code>
+              {commandArgs && (
+                <code className="text-sm font-mono text-muted-foreground">{commandArgs}</code>
+              )}
+            </div>
+            {commandMessage && commandMessage !== commandName && (
+              <div className="text-xs text-muted-foreground ml-4">{commandMessage}</div>
+            )}
+          </div>
         </div>
-        {commandMessage && commandMessage !== commandName && (
-          <div className="text-xs text-muted-foreground ml-4">{commandMessage}</div>
-        )}
       </div>
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -1599,18 +1675,18 @@ export const MultiEditWidget: React.FC<{
   const language = getLanguage(file_path);
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
-  
+
+  // Build subtitle with file path and edit count
+  const subtitle = `${file_path} (${edits.length} edit${edits.length !== 1 ? 's' : ''})`;
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-2">
-        <FileEdit className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">Using tool: MultiEdit</span>
-      </div>
+    <CollapsibleToolWidget
+      id={`multi-edit-widget-${file_path}`}
+      icon={<FileEdit className="h-4 w-4 text-primary" />}
+      title="Multi Edit"
+      subtitle={subtitle}
+    >
       <div className="ml-6 space-y-2">
-        <div className="flex items-center gap-2">
-          <FileText className="h-3 w-3 text-blue-500" />
-          <code className="text-xs font-mono text-blue-500">{file_path}</code>
-        </div>
         
         <div className="space-y-1">
           <button
@@ -1689,7 +1765,7 @@ export const MultiEditWidget: React.FC<{
           )}
         </div>
       </div>
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -2017,18 +2093,22 @@ export const TaskWidget: React.FC<{
   const isComplete = result && result.status === "completed";
   const isFailed = result && result.status === "failed";
 
+  // Build subtitle with status
+  const subtitle = description || (isComplete ? "Completed" : isFailed ? "Failed" : "Running...");
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Bot className="h-4 w-4 text-purple-500" />
-            <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
-          </div>
-          <span className="text-sm font-medium">Sub-Agent Task</span>
-          {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
-          {isFailed && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
+    <CollapsibleToolWidget
+      id={`task-widget-${description || 'sub-agent'}`}
+      icon={
+        <div className="relative">
+          <Bot className="h-4 w-4 text-purple-500" />
+          <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
         </div>
+      }
+      title="Sub-Agent Task"
+      subtitle={subtitle}
+    >
+      <div className="ml-6 space-y-3">
         {hasSubagentOutput && (
           <button
             onClick={() => setShowSubagent(!showSubagent)}
@@ -2036,11 +2116,10 @@ export const TaskWidget: React.FC<{
           >
             <ChevronRight className={cn("h-3 w-3 transition-transform", showSubagent && "rotate-90")} />
             <span>{showSubagent ? 'Hide' : 'Show'} Output</span>
+            {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-1" />}
+            {isFailed && <AlertCircle className="h-3.5 w-3.5 text-red-500 ml-1" />}
           </button>
         )}
-      </div>
-
-      <div className="ml-6 space-y-3">
         {description && (
           <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
             <div className="flex items-center gap-2 mb-1">
@@ -2093,7 +2172,7 @@ export const TaskWidget: React.FC<{
           </div>
         )}
       </div>
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -2195,15 +2274,15 @@ export const WebSearchWidget: React.FC<{
       console.error('Failed to open URL:', error);
     }
   };
-  
+
   return (
-    <div className="flex flex-col gap-2">
-      {/* Subtle Search Query Header */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/10">
-        <Globe className="h-4 w-4 text-blue-500/70" />
-        <span className="text-xs font-medium uppercase tracking-wider text-blue-600/70 dark:text-blue-400/70">Web Search</span>
-        <span className="text-sm text-muted-foreground/80 flex-1 truncate">{query}</span>
-      </div>
+    <CollapsibleToolWidget
+      id={`web-search-widget-${query}`}
+      icon={<Globe className="h-4 w-4 text-blue-500" />}
+      title="Web Search"
+      subtitle={query}
+    >
+      <div className="ml-6 space-y-2">
       
       {/* Results */}
       {result && (
@@ -2305,7 +2384,8 @@ export const WebSearchWidget: React.FC<{
           )}
         </div>
       )}
-    </div>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -2313,44 +2393,52 @@ export const WebSearchWidget: React.FC<{
  * Widget for displaying AI thinking/reasoning content
  * Collapsible and closed by default
  */
-export const ThinkingWidget: React.FC<{ 
+export const ThinkingWidget: React.FC<{
   thinking: string;
   signature?: string;
 }> = ({ thinking }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   // Strip whitespace from thinking content
   const trimmedThinking = thinking.trim();
-  
+
   return (
-    <div className="rounded-lg border border-gray-500/20 bg-gray-500/5 overflow-hidden">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-500/10 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Bot className="h-4 w-4 text-gray-500" />
-            <Sparkles className="h-2.5 w-2.5 text-gray-400 absolute -top-1 -right-1 animate-pulse" />
-          </div>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 italic">
-            Thinking...
-          </span>
+    <CollapsibleToolWidget
+      id="thinking-widget"
+      icon={
+        <div className="relative">
+          <Bot className="h-4 w-4 text-gray-500" />
+          <Sparkles className="h-2.5 w-2.5 text-gray-400 absolute -top-1 -right-1 animate-pulse" />
         </div>
-        <ChevronRight className={cn(
-          "h-4 w-4 text-gray-500 transition-transform",
-          isExpanded && "rotate-90"
-        )} />
-      </button>
-      
-      {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-gray-500/20">
-          <pre className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-500/5 p-3 rounded-lg italic">
-            {trimmedThinking}
-          </pre>
+      }
+      title="Thinking..."
+      defaultOpen={false}
+    >
+      <div className="ml-6 space-y-2">
+        <div className="rounded-lg border border-gray-500/20 bg-gray-500/5 overflow-hidden">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-500/10 transition-colors"
+          >
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 italic">
+              {isExpanded ? 'Hide details' : 'Show details'}
+            </span>
+            <ChevronRight className={cn(
+              "h-4 w-4 text-gray-500 transition-transform",
+              isExpanded && "rotate-90"
+            )} />
+          </button>
+
+          {isExpanded && (
+            <div className="px-4 pb-4 pt-2 border-t border-gray-500/20">
+              <pre className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-500/5 p-3 rounded-lg italic">
+                {trimmedThinking}
+              </pre>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </CollapsibleToolWidget>
   );
 };
 
@@ -2415,22 +2503,25 @@ export const WebFetchWidget: React.FC<{
       console.error('Failed to open URL:', error);
     }
   };
-  
+
+  // Build subtitle with domain
+  const subtitle = getDomain(url);
+
   return (
-    <div className="flex flex-col gap-2">
-      {/* Header with URL and optional prompt */}
-      <div className="space-y-2">
+    <CollapsibleToolWidget
+      id={`web-fetch-widget-${url}`}
+      icon={<Globe className="h-4 w-4 text-purple-500" />}
+      title="Web Fetch"
+      subtitle={subtitle}
+    >
+      <div className="ml-6 space-y-2">
         {/* URL Display */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/5 border border-purple-500/10">
-          <Globe className="h-4 w-4 text-purple-500/70" />
-          <span className="text-xs font-medium uppercase tracking-wider text-purple-600/70 dark:text-purple-400/70">Fetching</span>
-          <button
-            onClick={handleUrlClick}
-            className="text-sm text-foreground/80 hover:text-foreground flex-1 truncate text-left hover:underline decoration-purple-500/50"
-          >
-            {url}
-          </button>
-        </div>
+        <button
+          onClick={handleUrlClick}
+          className="text-sm text-foreground/80 hover:text-foreground truncate text-left hover:underline decoration-purple-500/50 w-full"
+        >
+          {url}
+        </button>
         
         {/* Prompt Display */}
         {prompt && (
@@ -2534,7 +2625,7 @@ export const WebFetchWidget: React.FC<{
           </div>
         </div>
       )}
-    </div>
+    </CollapsibleToolWidget>
   );
 };
 

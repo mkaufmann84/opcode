@@ -4,7 +4,9 @@ import {
   User,
   Bot,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/hooks";
 import type { ClaudeStreamMessage } from "@/types/claude-messages";
+import { useFold } from "@/contexts/FoldContext";
 import {
   TodoWidget,
   TodoReadWidget,
@@ -46,18 +49,31 @@ interface StreamMessageProps {
   className?: string;
   streamMessages: ClaudeStreamMessage[];
   onLinkDetected?: (url: string) => void;
+  messageId?: string;
 }
 
 /**
  * Component to render a single Claude Code stream message
  */
-const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected }) => {
+const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, className, streamMessages, onLinkDetected, messageId }) => {
   // State to track tool results mapped by tool call ID
   const [toolResults, setToolResults] = useState<Map<string, any>>(new Map());
-  
+
   // Get current theme
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme);
+
+  // Get fold context for individual message minimize and global fold
+  const { toggleMessageExpand, isMessageExpanded, isFolded, toggleFold } = useFold();
+  const isIndividuallyMinimized = messageId ? isMessageExpanded(`compact-${messageId}`) : false;
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (messageId) {
+      // Toggle individual message compact state
+      toggleMessageExpand(`compact-${messageId}`);
+    }
+  };
   
   // Extract all tool results from stream messages
   useEffect(() => {
@@ -116,43 +132,97 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
         <Card className={cn("border-primary/20 bg-primary/5", className)}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <Bot className="h-5 w-5 text-primary mt-0.5" />
-              <div className="flex-1 space-y-2 min-w-0">
+              <div
+                className="cursor-pointer hover:opacity-70 transition-opacity"
+                onClick={handleAvatarClick}
+                title="Click to minimize/expand message"
+              >
+                <Bot className={cn("h-5 w-5 text-primary mt-0.5", isIndividuallyMinimized && "opacity-50")} />
+              </div>
+              <div className={cn(
+                "flex-1 space-y-2 min-w-0 transition-all duration-200",
+                isIndividuallyMinimized && "max-h-[3rem] overflow-hidden"
+              )}
+              style={!isIndividuallyMinimized ? { maxHeight: 'none' } : undefined}
+              >
                 {msg.content && Array.isArray(msg.content) && msg.content.map((content: any, idx: number) => {
-                  // Text content - render as markdown
+                  // Text content - render as markdown with fold support
                   if (content.type === "text") {
                     // Ensure we have a string to render
-                    const textContent = typeof content.text === 'string' 
-                      ? content.text 
+                    const textContent = typeof content.text === 'string'
+                      ? content.text
                       : (content.text?.text || JSON.stringify(content.text || content));
-                    
+
+                    // Create unique ID for this text block
+                    const textBlockId = `text-${messageId}-${idx}`;
+                    const isTextFolded = isFolded(textBlockId);
+
+                    // Get first 2 lines for preview when folded
+                    const lines = textContent.split('\n');
+                    const preview = lines.slice(0, 2).join('\n');
+                    const hasMoreContent = lines.length > 2;
+
                     renderedSomething = true;
                     return (
-                      <div key={idx} className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ node, inline, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <SyntaxHighlighter
-                                  style={syntaxTheme}
-                                  language={match[1]}
-                                  PreTag="div"
-                                  {...props}
-                                >
-                                  {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                              ) : (
-                                <code className={className} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            }
-                          }}
-                        >
-                          {textContent}
-                        </ReactMarkdown>
+                      <div key={idx}>
+                        {isTextFolded ? (
+                          <div
+                            className="flex items-start gap-2 cursor-pointer hover:bg-muted/50 rounded p-2 -m-2 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFold(textBlockId);
+                            }}
+                          >
+                            <ChevronRight className="h-4 w-4 flex-shrink-0 mt-1 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-muted-foreground line-clamp-2">
+                                {preview}{hasMoreContent ? '...' : ''}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {/* Show chevron only when global fold is active, to allow manual collapse */}
+                            {isFolded('__ALL_FOLDED__') && (
+                              <div
+                                className="flex items-center gap-1 cursor-pointer hover:bg-muted/50 rounded p-1 -m-1 mb-2 w-fit transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFold(textBlockId);
+                                }}
+                              >
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Click to collapse</span>
+                              </div>
+                            )}
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  code({ node, inline, className, children, ...props }: any) {
+                                    const match = /language-(\w+)/.exec(className || '');
+                                    return !inline && match ? (
+                                      <SyntaxHighlighter
+                                        style={syntaxTheme}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        {...props}
+                                      >
+                                        {String(children).replace(/\n$/, '')}
+                                      </SyntaxHighlighter>
+                                    ) : (
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                }}
+                              >
+                                {textContent}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -329,8 +399,19 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({ message, classNa
         <Card className={cn("border-muted-foreground/20 bg-muted/20", className)}>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <User className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div className="flex-1 space-y-2 min-w-0">
+              <div
+                className="cursor-pointer hover:opacity-70 transition-opacity"
+                onClick={handleAvatarClick}
+                title="Click to minimize/expand message"
+              >
+                <User className={cn("h-5 w-5 text-muted-foreground mt-0.5", isIndividuallyMinimized && "opacity-50")} />
+              </div>
+              <div className={cn(
+                "flex-1 space-y-2 min-w-0 transition-all duration-200",
+                isIndividuallyMinimized && "max-h-[3rem] overflow-hidden"
+              )}
+              style={!isIndividuallyMinimized ? { maxHeight: 'none' } : undefined}
+              >
                 {/* Handle content that is a simple string (e.g. from user commands) */}
                 {(typeof msg.content === 'string' || (msg.content && !Array.isArray(msg.content))) && (
                   (() => {

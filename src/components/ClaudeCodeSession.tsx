@@ -9,7 +9,9 @@ import {
   Hash,
   Wrench,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Minimize2,
+  Maximize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +66,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTrackEvent, useComponentMetrics, useWorkflowTracking } from "@/hooks";
 import { SessionPersistenceService } from "@/services/sessionPersistence";
 import { useZoom } from "@/contexts/ZoomContext";
+import { useFold } from "@/contexts/FoldContext";
 
 interface ClaudeCodeSessionProps {
   /**
@@ -123,6 +126,7 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
   const [timelineVersion, setTimelineVersion] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const { zoomLevel, zoomIn, zoomOut } = useZoom();
+  const { foldAll, unfoldAll } = useFold();
   const [showForkDialog, setShowForkDialog] = useState(false);
   const [showSlashCommandsSettings, setShowSlashCommandsSettings] = useState(false);
   const [forkCheckpointId, setForkCheckpointId] = useState<string | null>(null);
@@ -1260,10 +1264,11 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                   top: virtualItem.start,
                 }}
               >
-                <StreamMessage 
-                  message={message} 
+                <StreamMessage
+                  message={message}
                   streamMessages={messages}
                   onLinkDetected={handleLinkDetected}
+                  messageId={`msg-${virtualItem.index}`}
                 />
               </motion.div>
             );
@@ -1604,35 +1609,54 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
                   {/* Zoom Controls */}
                   <div className="flex items-center gap-0.5 border-l border-border pl-2 ml-2">
                     <TooltipSimple content="Zoom out (Cmd/Ctrl + -)" side="top">
-                      <motion.div
-                        whileTap={{ scale: 0.97 }}
-                        transition={{ duration: 0.15 }}
-                      >
+                      <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.15 }}>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={zoomOut}
-                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         >
                           <ZoomOut className="h-3.5 w-3.5" />
                         </Button>
                       </motion.div>
                     </TooltipSimple>
-                    <span className="text-xs text-muted-foreground font-mono min-w-[3rem] text-center">
-                      {Math.round(zoomLevel * 100)}%
-                    </span>
                     <TooltipSimple content="Zoom in (Cmd/Ctrl + +)" side="top">
-                      <motion.div
-                        whileTap={{ scale: 0.97 }}
-                        transition={{ duration: 0.15 }}
-                      >
+                      <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.15 }}>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={zoomIn}
-                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         >
                           <ZoomIn className="h-3.5 w-3.5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipSimple>
+                  </div>
+
+                  {/* Fold/Unfold Controls */}
+                  <div className="flex items-center gap-0.5 border-l border-border pl-2 ml-2">
+                    <TooltipSimple content="Fold all" side="top">
+                      <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.15 }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={foldAll}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        >
+                          <Minimize2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipSimple>
+                    <TooltipSimple content="Unfold all" side="top">
+                      <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.15 }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={unfoldAll}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        >
+                          <Maximize2 className="h-3.5 w-3.5" />
                         </Button>
                       </motion.div>
                     </TooltipSimple>
