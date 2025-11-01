@@ -54,6 +54,28 @@ export interface Session {
 }
 
 /**
+ * Represents a global session tracked by hooks
+ */
+export interface GlobalSession {
+  /** The session ID (UUID) */
+  session_id: string;
+  /** Current working directory */
+  cwd: string;
+  /** Path to the transcript file */
+  transcript_path: string;
+  /** Permission mode */
+  permission_mode: string;
+  /** Session status (running, waiting_for_input, needs_permission) */
+  status: string;
+  /** Unix timestamp when session started (as float from Python) */
+  started_at: number;
+  /** Unix timestamp of last activity (as float from Python) */
+  last_activity: number;
+  /** Last notification message (if any) */
+  last_notification?: string;
+}
+
+/**
  * Represents the settings from ~/.claude/settings.json
  */
 export interface ClaudeSettings {
@@ -1060,6 +1082,14 @@ export const api = {
    */
   async listRunningClaudeSessions(): Promise<any[]> {
     return apiCall("list_running_claude_sessions");
+  },
+
+  /**
+   * Lists all global Claude sessions tracked by hooks
+   * @returns Promise resolving to list of global sessions
+   */
+  async listGlobalSessions(): Promise<GlobalSession[]> {
+    return apiCall("list_global_sessions");
   },
 
   /**

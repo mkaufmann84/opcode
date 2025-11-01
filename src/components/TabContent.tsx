@@ -4,7 +4,7 @@ import { useTabState } from '@/hooks/useTabState';
 import { useScreenTracking } from '@/hooks/useAnalytics';
 import { Tab } from '@/contexts/TabContext';
 import { Loader2, Plus, ArrowLeft } from 'lucide-react';
-import { api, type Project, type Session, type ClaudeMdFile } from '@/lib/api';
+import { api, type Project, type Session, type ClaudeMdFile, type GlobalSession } from '@/lib/api';
 import { ProjectList } from '@/components/ProjectList';
 import { SessionList } from '@/components/SessionList';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ const UsageDashboard = lazy(() => import('@/components/UsageDashboard').then(m =
 const MCPManager = lazy(() => import('@/components/MCPManager').then(m => ({ default: m.MCPManager })));
 const Settings = lazy(() => import('@/components/Settings').then(m => ({ default: m.Settings })));
 const MarkdownEditor = lazy(() => import('@/components/MarkdownEditor').then(m => ({ default: m.MarkdownEditor })));
+const GlobalSessions = lazy(() => import('@/components/GlobalSessions').then(m => ({ default: m.GlobalSessions })));
 // const ClaudeFileEditor = lazy(() => import('@/components/ClaudeFileEditor').then(m => ({ default: m.ClaudeFileEditor })));
 
 // Import non-lazy components for projects view
@@ -29,7 +30,7 @@ interface TabPanelProps {
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
-  const { updateTab } = useTabState();
+  const { updateTab, createGlobalSessionsTab, createChatTab, findTabBySessionId, switchToTab } = useTabState();
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = React.useState<Project | null>(null);
   const [sessions, setSessions] = React.useState<Session[]>([]);
@@ -45,6 +46,41 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
       loadProjects();
     }
   }, [isActive, tab.type]);
+
+  // Restore sessions view when tab has selectedProjectPath
+  useEffect(() => {
+    const restoreSessionsView = async () => {
+      if (isActive && tab.type === 'projects' && tab.selectedProjectPath && !selectedProject) {
+        try {
+          setLoading(true);
+          setError(null);
+
+          // Find the project by path
+          const projectList = await api.listProjects();
+          const project = projectList.find(p => p.path === tab.selectedProjectPath);
+
+          if (project) {
+            const sessionList = await api.getProjectSessions(project.id);
+            setSessions(sessionList);
+            setSelectedProject(project);
+
+            // Update tab title to show project name
+            const projectName = project.path.split('/').pop() || 'Project';
+            updateTab(tab.id, {
+              title: projectName
+            });
+          }
+        } catch (err) {
+          console.error("Failed to restore sessions view:", err);
+          setError("Failed to load sessions for this project.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    restoreSessionsView();
+  }, [isActive, tab.type, tab.selectedProjectPath, selectedProject]);
   
   const loadProjects = async () => {
     try {
@@ -116,7 +152,8 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
         title: projectName,
         sessionId: undefined,
         sessionData: undefined,
-        initialProjectPath: selectedProject.path
+        initialProjectPath: selectedProject.path,
+        selectedProjectPath: selectedProject.path
       });
     } else {
       updateTab(tab.id, {
@@ -128,7 +165,54 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
       });
     }
   };
-  
+
+  const handleGlobalSessionClick = async (session: GlobalSession) => {
+    // Check if a tab already exists for this session
+    const existingTab = findTabBySessionId(session.session_id);
+
+    if (existingTab) {
+      // Switch to existing tab
+      switchToTab(existingTab.id);
+      return;
+    }
+
+    try {
+      // Load projects to find the matching project ID
+      const projectList = await api.listProjects();
+      const project = projectList.find(p => p.path === session.cwd);
+
+      if (!project) {
+        console.error('Project not found for cwd:', session.cwd);
+        // Create tab without full session data as fallback
+        const projectName = session.cwd.split('/').pop() || 'Session';
+        createChatTab(session.session_id, projectName, session.cwd);
+        return;
+      }
+
+      // Create a full Session object
+      const sessionObj: Session = {
+        id: session.session_id,
+        project_id: project.id,
+        project_path: session.cwd,
+        created_at: session.started_at,
+      };
+
+      // Create tab with full session data
+      const projectName = session.cwd.split('/').pop() || 'Session';
+      const tabId = createChatTab(session.session_id, projectName, session.cwd);
+
+      // Update the tab with session data
+      updateTab(tabId, {
+        sessionData: sessionObj
+      });
+    } catch (err) {
+      console.error('Failed to load project for session:', err);
+      // Fallback: create tab without full session data
+      const projectName = session.cwd.split('/').pop() || 'Session';
+      createChatTab(session.session_id, projectName, session.cwd);
+    }
+  };
+
   // Panel visibility - hide when not active
   const panelVisibilityClass = isActive ? "" : "hidden";
   
@@ -154,9 +238,10 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
                               onClick={() => {
                                 setSelectedProject(null);
                                 setSessions([]);
-                                // Restore tab title to "Projects"
+                                // Restore tab title to "Projects" and clear selectedProjectPath
                                 updateTab(tab.id, {
-                                  title: 'Projects'
+                                  title: 'Projects',
+                                  selectedProjectPath: undefined
                                 });
                               }}
                               className="h-8 w-8 -ml-2"
@@ -215,12 +300,14 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
                         projectPath={selectedProject.path}
                         onSessionClick={(session) => {
                           // Update current tab to show the selected session
+                          // Store selectedProjectPath to enable back navigation to sessions list
                           updateTab(tab.id, {
                             type: 'chat',
                             title: session.project_path.split('/').pop() || 'Session',
                             sessionId: session.id,
                             sessionData: session,
-                            initialProjectPath: session.project_path
+                            initialProjectPath: session.project_path,
+                            selectedProjectPath: selectedProject?.path
                           });
                         }}
                         onEditClaudeFile={(file: ClaudeMdFile) => {
@@ -239,6 +326,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
                   projects={projects}
                   onProjectClick={handleProjectClick}
                   onOpenProject={handleOpenProject}
+                  onActiveConversationsClick={() => createGlobalSessionsTab()}
                   loading={loading}
                 />
               )}
@@ -252,10 +340,12 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
               session={tab.sessionData} // Pass the full session object if available
               initialProjectPath={tab.initialProjectPath || tab.sessionId}
               onBack={() => {
-                // Go back to projects view in the same tab
+                // Go back to sessions view if we have a selectedProjectPath, otherwise go to projects list
+                const projectName = tab.selectedProjectPath?.split('/').pop() || 'Projects';
                 updateTab(tab.id, {
                   type: 'projects',
-                  title: 'Projects',
+                  title: tab.selectedProjectPath ? projectName : 'Projects',
+                  selectedProjectPath: tab.selectedProjectPath
                 });
               }}
               onProjectPathChange={(path: string) => {
@@ -313,7 +403,14 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
             <Settings onBack={() => {}} />
           </div>
         );
-      
+
+      case 'global-sessions':
+        return (
+          <div className="h-full overflow-y-auto p-6">
+            <GlobalSessions onSessionClick={handleGlobalSessionClick} />
+          </div>
+        );
+
       case 'claude-md':
         return (
           <div className="h-full">
@@ -470,7 +567,8 @@ export const TabContent: React.FC = () => {
             title: session.project_path.split('/').pop() || 'Session',
             sessionId: session.id,
             sessionData: session,
-            initialProjectPath: session.project_path
+            initialProjectPath: session.project_path,
+            selectedProjectPath: currentTab.selectedProjectPath || session.project_path
           });
         } else {
           const projectName = session.project_path.split('/').pop() || 'Session';

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { X, Plus, MessageSquare, Bot, AlertCircle, Loader2, Folder, BarChart, Server, Settings, FileText } from 'lucide-react';
+import { X, Plus, MessageSquare, Bot, AlertCircle, Loader2, Folder, BarChart, Server, Settings, FileText, ArrowLeft } from 'lucide-react';
 import { useTabState } from '@/hooks/useTabState';
 import { Tab, useTabContext } from '@/contexts/TabContext';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface TabItemProps {
 
 const TabItem: React.FC<TabItemProps> = ({ tab, isActive, onClose, onClick, isDragging = false, setDraggedTabId }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const { updateTab } = useTabState();
   
   const getIcon = () => {
     switch (tab.type) {
@@ -36,6 +37,8 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isActive, onClose, onClick, isDr
       case 'claude-md':
       case 'claude-file':
         return FileText;
+      case 'global-sessions':
+        return MessageSquare;
       case 'agent-execution':
       case 'create-agent':
       case 'import-agent':
@@ -85,7 +88,30 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isActive, onClose, onClick, isDr
       <div className="flex-shrink-0">
         <Icon className="w-4 h-4" />
       </div>
-      
+
+      {/* Back Arrow - Only show for chat tabs with selectedProjectPath */}
+      {tab.type === 'chat' && tab.selectedProjectPath && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const projectName = tab.selectedProjectPath?.split('/').pop() || 'Projects';
+            updateTab(tab.id, {
+              type: 'projects',
+              title: projectName,
+              selectedProjectPath: tab.selectedProjectPath
+            });
+          }}
+          className={cn(
+            "flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-sm",
+            "transition-all duration-100 hover:bg-muted/60",
+            "focus:outline-none focus:ring-1 focus:ring-primary/50"
+          )}
+          title="Back to sessions"
+        >
+          <ArrowLeft className="w-3 h-3" />
+        </button>
+      )}
+
       {/* Tab Title */}
       <span className="flex-1 truncate text-xs font-medium min-w-0">
         {tab.title}

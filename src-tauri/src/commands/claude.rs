@@ -57,6 +57,28 @@ pub struct Session {
     pub message_timestamp: Option<String>,
 }
 
+/// Represents a global session tracked by hooks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalSession {
+    /// The session ID (UUID)
+    pub session_id: String,
+    /// Current working directory
+    pub cwd: String,
+    /// Path to the transcript file
+    pub transcript_path: String,
+    /// Permission mode
+    pub permission_mode: String,
+    /// Session status (running, waiting_for_input, needs_permission)
+    pub status: String,
+    /// Unix timestamp when session started (as float from Python)
+    pub started_at: f64,
+    /// Unix timestamp of last activity (as float from Python)
+    pub last_activity: f64,
+    /// Last notification message (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_notification: Option<String>,
+}
+
 /// Represents a message entry in the JSONL file
 #[derive(Debug, Deserialize)]
 struct JsonlEntry {
@@ -1154,6 +1176,34 @@ pub async fn list_running_claude_sessions(
     registry: tauri::State<'_, crate::process::ProcessRegistryState>,
 ) -> Result<Vec<crate::process::ProcessInfo>, String> {
     registry.0.get_running_claude_sessions()
+}
+
+/// Get all global Claude sessions tracked by hooks
+#[tauri::command]
+pub async fn list_global_sessions() -> Result<Vec<GlobalSession>, String> {
+    // Read the global sessions JSON file
+    let global_sessions_path = dirs::home_dir()
+        .ok_or("Could not find home directory")?
+        .join("local/global/claude-sessions.json");
+
+    // Check if file exists
+    if !global_sessions_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    // Read and parse the file
+    let content = fs::read_to_string(&global_sessions_path)
+        .map_err(|e| format!("Failed to read global sessions file: {}", e))?;
+
+    #[derive(Deserialize)]
+    struct GlobalSessionsFile {
+        sessions: Vec<GlobalSession>,
+    }
+
+    let file_data: GlobalSessionsFile = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse global sessions JSON: {}", e))?;
+
+    Ok(file_data.sessions)
 }
 
 /// Get live output from a Claude session

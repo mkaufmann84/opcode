@@ -31,3 +31,4 @@ temp_lib/
 
 .env
 example-convo-subagents.json
+__pycache__/

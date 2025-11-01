@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { 
+import {
   FolderOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +24,10 @@ interface ProjectListProps {
    * Callback when open project is clicked
    */
   onOpenProject?: () => void | Promise<void>;
+  /**
+   * Callback when active conversations is clicked
+   */
+  onActiveConversationsClick?: () => void;
   /**
    * Whether the list is currently loading
    */
@@ -87,6 +92,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   projects,
   onProjectClick,
   onOpenProject,
+  onActiveConversationsClick,
   className,
 }) => {
   const [showAll, setShowAll] = useState(false);
@@ -123,19 +129,35 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 Select a project to start working with Claude Code
               </p>
             </div>
-            <motion.div
-              whileTap={{ scale: 0.97 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Button
-                onClick={onOpenProject}
-                size="default"
-                className="flex items-center gap-2"
+            <div className="flex items-center gap-2">
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.15 }}
               >
-                <FolderOpen className="h-4 w-4" />
-                Open Project
-              </Button>
-            </motion.div>
+                <Button
+                  onClick={onActiveConversationsClick}
+                  size="default"
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Active Conversations
+                </Button>
+              </motion.div>
+              <motion.div
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Button
+                  onClick={onOpenProject}
+                  size="default"
+                  className="flex items-center gap-2"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Open Project
+                </Button>
+              </motion.div>
+            </div>
           </div>
         </div>
 

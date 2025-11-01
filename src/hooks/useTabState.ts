@@ -21,6 +21,7 @@ interface UseTabStateReturn {
   createMCPTab: () => string | null;
   createSettingsTab: () => string | null;
   createClaudeMdTab: () => string | null;
+  createGlobalSessionsTab: () => string | null;
   createClaudeFileTab: (fileId: string, fileName: string) => string;
   createCreateAgentTab: () => string;
   createImportAgentTab: () => string;
@@ -188,6 +189,23 @@ export const useTabState = (): UseTabStateReturn => {
     });
   }, [addTab, tabs, setActiveTab]);
 
+  const createGlobalSessionsTab = useCallback((): string | null => {
+    // Check if global-sessions tab already exists (singleton)
+    const existingTab = tabs.find(tab => tab.type === 'global-sessions');
+    if (existingTab) {
+      setActiveTab(existingTab.id);
+      return existingTab.id;
+    }
+
+    return addTab({
+      type: 'global-sessions',
+      title: 'Active Conversations',
+      status: 'idle',
+      hasUnsavedChanges: false,
+      icon: 'activity'
+    });
+  }, [addTab, tabs, setActiveTab]);
+
   const createClaudeFileTab = useCallback((fileId: string, fileName: string): string => {
     // Check if tab already exists for this file
     const existingTab = tabs.find(tab => tab.type === 'claude-file' && tab.claudeFileId === fileId);
@@ -341,6 +359,7 @@ export const useTabState = (): UseTabStateReturn => {
     createMCPTab,
     createSettingsTab,
     createClaudeMdTab,
+    createGlobalSessionsTab,
     createClaudeFileTab,
     createCreateAgentTab,
     createImportAgentTab,
