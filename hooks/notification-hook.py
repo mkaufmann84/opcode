@@ -12,6 +12,7 @@ from pathlib import Path
 # Add hooks directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 import hook_utils
+import session_settings
 
 def main():
     try:
@@ -23,6 +24,10 @@ def main():
 
         if not session_id:
             # No session ID, skip
+            sys.exit(0)
+
+        # Check if hook is enabled for this session
+        if not session_settings.is_hook_enabled(session_id, "notification-hook"):
             sys.exit(0)
 
         # Determine status based on message

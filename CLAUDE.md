@@ -51,6 +51,38 @@ This project includes Claude Code skills for enhanced workflows:
 
 ./.claude/skills/skill-creator/SKILL.md - Meta-skill for creating new skills
 
+## ⚙️ Session Settings Management
+
+When the user asks about session settings, approval modes, or hook configuration:
+
+**Show Settings:**
+```bash
+bash ~/local/opcode/hooks/show_settings.sh
+```
+
+**Update Settings:**
+```bash
+# Auto-detect session ID
+SESSION_ID=$(python3 ~/local/opcode/hooks/get_current_session_id.py)
+
+# Set approval mode (ai, strict, disabled, auto)
+# ai = Smart rules + Grok-4-Fast AI fallback (recommended)
+# strict = Always ask for approval
+# disabled = No hook intervention
+# auto = Auto-approve everything (dangerous)
+python3 ~/local/opcode/hooks/update_session_settings.py "$SESSION_ID" set_approval_mode ai
+
+# Enable/disable hooks
+python3 ~/local/opcode/hooks/update_session_settings.py "$SESSION_ID" set_hook stop-hook true
+```
+
+**Natural Language Processing:**
+When user says things like:
+- "show my settings" → Run show_settings.sh
+- "set approval mode to strict" → Parse and run update command
+- "enable stop-hook" → Parse and run update command
+- "what's my approval mode" → Run show_settings.sh and extract approval_mode
+
 ## 📝 Quick Command Reference
 
 ```bash

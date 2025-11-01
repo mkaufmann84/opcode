@@ -12,6 +12,7 @@ from pathlib import Path
 # Add hooks directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 import hook_utils
+import session_settings
 
 def main():
     try:
@@ -22,6 +23,9 @@ def main():
         if not session_id:
             # No session ID available yet, skip
             sys.exit(0)
+
+        # Initialize session settings (creates default settings if not exists)
+        session_settings.load_settings(session_id)
 
         # Create session data
         session_data = {

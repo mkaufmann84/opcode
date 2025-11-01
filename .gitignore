@@ -32,3 +32,6 @@ temp_lib/
 .env
 example-convo-subagents.json
 __pycache__/
+tmp.local.json
+
+# Grok approval test comment

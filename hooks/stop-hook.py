@@ -15,11 +15,13 @@ from typing import Optional, List, Dict, Tuple, Any
 # Add hooks directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 import hook_utils
+import session_settings
 
 
 def parse_latest_todos(transcript_path: str) -> Optional[List[Dict[str, Any]]]:
     """
     Parse the transcript to find the latest todo list
+    Only considers TodoWrite calls that were not rejected
 
     Args:
         transcript_path: Path to the session transcript JSONL file
@@ -31,14 +33,44 @@ def parse_latest_todos(transcript_path: str) -> Optional[List[Dict[str, Any]]]:
         return None
 
     todos = None
+    rejected_tool_ids = set()
+
     try:
+        # First pass: collect all rejected tool IDs
         with open(transcript_path, 'r') as f:
             for line in f:
                 try:
                     entry = json.loads(line)
-                    extracted = extract_todos_from_transcript_entry(entry)
-                    if extracted:
-                        todos = extracted
+                    message = entry.get("message", {})
+                    content = message.get("content", [])
+
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "tool_result":
+                            # Check if this tool result indicates rejection
+                            error = item.get("content")
+                            tool_use_id = item.get("tool_use_id")
+                            if error and "doesn't want to proceed" in str(error) and tool_use_id:
+                                rejected_tool_ids.add(tool_use_id)
+                except json.JSONDecodeError:
+                    continue
+
+        # Second pass: find latest non-rejected TodoWrite
+        with open(transcript_path, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    message = entry.get("message", {})
+                    content = message.get("content", [])
+
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "tool_use" and item.get("name") == "TodoWrite":
+                            tool_id = item.get("id")
+                            # Only use this TodoWrite if it wasn't rejected
+                            if tool_id not in rejected_tool_ids:
+                                input_data = item.get("input", {})
+                                extracted = input_data.get("todos")
+                                if extracted is not None:  # Allow empty lists
+                                    todos = extracted
                 except json.JSONDecodeError:
                     continue
     except Exception as e:
@@ -166,7 +198,13 @@ def main():
 
         session_id = input_data.get("session_id")
         transcript_path = input_data.get("transcript_path", "")
-        stop_hook_active = input_data.get("stop_hook_active", False)
+
+        # Check if hook is enabled for this session
+        if not session_settings.is_hook_enabled(session_id, "stop-hook"):
+            sys.exit(0)
+
+        # Always check todos - rely on prompt instructions to prevent infinite loops
+        stop_hook_active = False
 
         # Prevent infinite loop
         if should_skip_hook(stop_hook_active):
